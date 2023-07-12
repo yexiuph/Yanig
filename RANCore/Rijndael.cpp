@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Rijndael.h"
-//#include "./SHA.h" // TODO : YeXiuPH
-//#include "./DoubleBuffering.h" // TODO : YeXiuPH
+#include "SHA.h"
+#include "DoubleBuffering.h"
 #include "ByteComposition.h"
 
 #include <exception>
@@ -1109,14 +1109,18 @@ void CRijndael::ResetChain()
 //Compute Signature
 void CRijndael::Signature(char* pcSig)
 {
-	//8+32+2+2+1+1+1
-	char acSigData[48] = { 0 };
-	strcat_s(acSigData, "RIJNDAEL");
+	constexpr int MAX_SIG_LENGTH = 48;
+
+	char acSigData[MAX_SIG_LENGTH] = "RIJNDAEL";
 	int iLen = (int)strlen(acSigData);
+
 	memcpy(acSigData + iLen, m_acKey, m_keylength);
-	sprintf(acSigData + iLen + m_keylength, "%d%d%d%d", m_blockSize, m_keylength, m_iMode, m_iPadding);
+	iLen += m_keylength;
+
+	sprintf_s(acSigData + iLen, MAX_SIG_LENGTH - iLen, "%d%d%d%d", m_blockSize, m_keylength, m_iMode, m_iPadding);
+
 	CSHA oSHA;
-	oSHA.AddData(acSigData, (int)strlen(acSigData));
+	oSHA.AddData(acSigData, iLen + strlen(acSigData + iLen));
 	oSHA.FinalDigest(pcSig);
 }
 

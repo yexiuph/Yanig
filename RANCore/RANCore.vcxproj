@@ -141,14 +141,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="ByteComposition.h" />
+    <ClInclude Include="DoubleBuffering.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Rijndael.h" />
     <ClInclude Include="Method.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RANCore.h" />
+    <ClInclude Include="SHA.h" />
+    <ClInclude Include="StlFunctions.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ByteComposition.cpp" />
+    <ClCompile Include="DoubleBuffering.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -158,6 +162,7 @@
     <ClCompile Include="RANCore.cpp" />
     <ClCompile Include="Method.cpp" />
     <ClCompile Include="Rijndael.cpp" />
+    <ClCompile Include="SHA.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
