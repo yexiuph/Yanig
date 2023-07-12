@@ -31,94 +31,76 @@ const unsigned int CSHA::sm_H256[8] =
 
 //CONSTRUCTOR
 CSHA::CSHA()
+	: m_auiBits{ 0, 0 }
 {
 	for (int i = 0; i < SHA256LENGTH; i++)
 		m_auiBuf[i] = sm_H256[i];
-	m_auiBits[0] = 0;
-	m_auiBits[1] = 0;
 }
 
-//Update context to reflect the concatenation of another buffer of bytes.
-void CSHA::AddData(char const* pcData, int iDataLength)
+void CSHA::AddData(const char* pcData, int iDataLength)
 {
 	if (iDataLength < 1)
-		throw runtime_error(string("FileCrypt ERROR: in CSHA::AddData(), Data Length should be > 0!"));
+		throw runtime_error("FileCrypt ERROR: in CSHA::AddData(), Data Length should be > 0!");
+
 	unsigned int uiT;
-	//Update bitcount
-	uiT = m_auiBits[0];
-	if ((m_auiBits[0] = uiT + ((unsigned int)iDataLength << 3)) < uiT)
-		m_auiBits[1]++; //Carry from low to high
-	m_auiBits[1] += iDataLength >> 29;
-	uiT = (uiT >> 3) & 0x3f; //Bytes already
-	//Handle any leading odd-sized chunks
-	if (uiT != 0)
+	unsigned int uiBits = m_auiBits[0] + (static_cast<unsigned int>(iDataLength) << 3);
+
+	if (uiBits < m_auiBits[0])
+		m_auiBits[1]++; // Carry from low to high
+	m_auiBits[1] += (iDataLength >> 29);
+	uiT = BLOCKSIZE - (m_auiBits[0] >> 3); // Bytes already
+
+	if (iDataLength >= uiT)
 	{
-		unsigned char* puc = (unsigned char*)m_aucIn + uiT;
-		uiT = BLOCKSIZE - uiT;
-		if (iDataLength < (int)uiT)
-		{
-			memcpy(puc, pcData, iDataLength);
-			return;
-		}
-		memcpy(puc, pcData, uiT);
+		memcpy(m_aucIn + uiT, pcData, uiT);
 		Transform();
 		pcData += uiT;
 		iDataLength -= uiT;
+
+		while (iDataLength >= BLOCKSIZE)
+		{
+			memcpy(m_aucIn, pcData, BLOCKSIZE);
+			Transform();
+			pcData += BLOCKSIZE;
+			iDataLength -= BLOCKSIZE;
+		}
 	}
-	//Process data in 64-byte chunks
-	while (iDataLength >= BLOCKSIZE)
-	{
-		memcpy(m_aucIn, pcData, BLOCKSIZE);
-		Transform();
-		pcData += BLOCKSIZE;
-		iDataLength -= BLOCKSIZE;
-	}
-	//Handle any remaining bytes of data
+
 	memcpy(m_aucIn, pcData, iDataLength);
-	//Set the flag
 	m_bAddData = true;
 }
 
-//Final wrapup - pad to 64-byte boundary with the bit pattern 
-//1 0*(64-bit count of bits processed, MSB-first)
 void CSHA::FinalDigest(char* pcDigest)
 {
-	//Is the User's responsability to ensure that pcDigest has at least 32 bytes allocated
 	if (false == m_bAddData)
-		throw runtime_error(string("FileCrypt ERROR: in CSHA::FinalDigest(), No data Added before call!"));
-	unsigned int uiCount;
-	unsigned char* puc;
-	//Compute number of bytes mod 64
-	uiCount = (m_auiBits[0] >> 3) & 0x3F;
-	//Set the first char of padding to 0x80. This is safe since there is
-	//always at least one byte free
-	puc = m_aucIn + uiCount;
+		throw runtime_error("FileCrypt ERROR: in CSHA::FinalDigest(), No data Added before call!");
+
+	unsigned int uiCount = (m_auiBits[0] >> 3) & 0x3F;
+	unsigned char* puc = m_aucIn + uiCount;
 	*puc++ = 0x80;
-	//Bytes of padding needed to make 64 bytes
+
 	uiCount = BLOCKSIZE - uiCount - 1;
-	//Pad out to 56 mod 64
+
 	if (uiCount < 8)
 	{
-		//Two lots of padding: Pad the first block to 64 bytes
 		memset(puc, 0, uiCount);
 		Transform();
-		//Now fill the next block with 56 bytes
 		memset(m_aucIn, 0, BLOCKSIZE - 8);
 	}
 	else
 	{
-		//Pad block to 56 bytes
 		memset(puc, 0, uiCount - 8);
 	}
-	//Append length in bits and transform
-	Word2Bytes(m_auiBits[1], &m_aucIn[BLOCKSIZE - 8]);
-	Word2Bytes(m_auiBits[0], &m_aucIn[BLOCKSIZE - 4]);
+
+	Word2Bytes(m_auiBits[1], m_aucIn + BLOCKSIZE - 8);
+	Word2Bytes(m_auiBits[0], m_aucIn + BLOCKSIZE - 4);
 	Transform();
-	for (int i = 0; i < SHA256LENGTH; i++, pcDigest += 4)
-		Word2Bytes(m_auiBuf[i], reinterpret_cast<unsigned char*>(pcDigest));
-	//Reinitialize
+
+	memcpy(pcDigest, m_auiBuf, SHA256LENGTH * sizeof(unsigned int));
+
 	Reset();
 }
+
 
 //Reset current operation in order to prepare a new one
 void CSHA::Reset()
@@ -131,22 +113,17 @@ void CSHA::Reset()
 	m_bAddData = false;
 }
 
-//The core of the SHA algorithm, this alters an existing SHA hash to
-//reflect the addition of 16 longwords of new data.
 void CSHA::Transform()
 {
-	//Expansion of m_aucIn
-	unsigned char* pucIn = m_aucIn;
-	unsigned int auiW[64];
-	int i;
-	for (i = 0; i < 16; i++, pucIn += 4)
-		Bytes2Word(pucIn, auiW[i]);
-	for (i = 16; i < 64; i++)
-		auiW[i] = sig1(auiW[i - 2]) + auiW[i - 7] + sig0(auiW[i - 15]) + auiW[i - 16];
-	//OR
-	//for(i=0; i<48; i++)
-	//	auiW[i+16] = sig1(auiW[i+14]) + auiW[i+9] + sig0(auiW[i+1]) + auiW[i];
 	unsigned int a, b, c, d, e, f, g, h, t;
+	unsigned int auiW[64];
+
+	for (int i = 0; i < 16; i++)
+		Bytes2Word(m_aucIn + (i * 4), auiW[i]);
+
+	for (int i = 16; i < 64; i++)
+		auiW[i] = sig1(auiW[i - 2]) + auiW[i - 7] + sig0(auiW[i - 15]) + auiW[i - 16];
+
 	a = m_auiBuf[0];
 	b = m_auiBuf[1];
 	c = m_auiBuf[2];
@@ -155,104 +132,21 @@ void CSHA::Transform()
 	f = m_auiBuf[5];
 	g = m_auiBuf[6];
 	h = m_auiBuf[7];
-	t = h + SIG1(e) + CH(e, f, g) + sm_K256[0] + auiW[0]; h = t + SIG0(a) + MAJ(a, b, c); d += t;
-	t = g + SIG1(d) + CH(d, e, f) + sm_K256[1] + auiW[1]; g = t + SIG0(h) + MAJ(h, a, b); c += t;
-	t = f + SIG1(c) + CH(c, d, e) + sm_K256[2] + auiW[2]; f = t + SIG0(g) + MAJ(g, h, a); b += t;
-	t = e + SIG1(b) + CH(b, c, d) + sm_K256[3] + auiW[3]; e = t + SIG0(f) + MAJ(f, g, h); a += t;
-	t = d + SIG1(a) + CH(a, b, c) + sm_K256[4] + auiW[4]; d = t + SIG0(e) + MAJ(e, f, g); h += t;
-	t = c + SIG1(h) + CH(h, a, b) + sm_K256[5] + auiW[5]; c = t + SIG0(d) + MAJ(d, e, f); g += t;
-	t = b + SIG1(g) + CH(g, h, a) + sm_K256[6] + auiW[6]; b = t + SIG0(c) + MAJ(c, d, e); f += t;
-	t = a + SIG1(f) + CH(f, g, h) + sm_K256[7] + auiW[7]; a = t + SIG0(b) + MAJ(b, c, d); e += t;
-	//
-	t = h + SIG1(e) + CH(e, f, g) + sm_K256[8] + auiW[8]; h = t + SIG0(a) + MAJ(a, b, c); d += t;
-	t = g + SIG1(d) + CH(d, e, f) + sm_K256[9] + auiW[9]; g = t + SIG0(h) + MAJ(h, a, b); c += t;
-	t = f + SIG1(c) + CH(c, d, e) + sm_K256[10] + auiW[10]; f = t + SIG0(g) + MAJ(g, h, a); b += t;
-	t = e + SIG1(b) + CH(b, c, d) + sm_K256[11] + auiW[11]; e = t + SIG0(f) + MAJ(f, g, h); a += t;
-	t = d + SIG1(a) + CH(a, b, c) + sm_K256[12] + auiW[12]; d = t + SIG0(e) + MAJ(e, f, g); h += t;
-	t = c + SIG1(h) + CH(h, a, b) + sm_K256[13] + auiW[13]; c = t + SIG0(d) + MAJ(d, e, f); g += t;
-	t = b + SIG1(g) + CH(g, h, a) + sm_K256[14] + auiW[14]; b = t + SIG0(c) + MAJ(c, d, e); f += t;
-	t = a + SIG1(f) + CH(f, g, h) + sm_K256[15] + auiW[15]; a = t + SIG0(b) + MAJ(b, c, d); e += t;
-	//
-	t = h + SIG1(e) + CH(e, f, g) + sm_K256[16] + auiW[16]; h = t + SIG0(a) + MAJ(a, b, c); d += t;
-	t = g + SIG1(d) + CH(d, e, f) + sm_K256[17] + auiW[17]; g = t + SIG0(h) + MAJ(h, a, b); c += t;
-	t = f + SIG1(c) + CH(c, d, e) + sm_K256[18] + auiW[18]; f = t + SIG0(g) + MAJ(g, h, a); b += t;
-	t = e + SIG1(b) + CH(b, c, d) + sm_K256[19] + auiW[19]; e = t + SIG0(f) + MAJ(f, g, h); a += t;
-	t = d + SIG1(a) + CH(a, b, c) + sm_K256[20] + auiW[20]; d = t + SIG0(e) + MAJ(e, f, g); h += t;
-	t = c + SIG1(h) + CH(h, a, b) + sm_K256[21] + auiW[21]; c = t + SIG0(d) + MAJ(d, e, f); g += t;
-	t = b + SIG1(g) + CH(g, h, a) + sm_K256[22] + auiW[22]; b = t + SIG0(c) + MAJ(c, d, e); f += t;
-	t = a + SIG1(f) + CH(f, g, h) + sm_K256[23] + auiW[23]; a = t + SIG0(b) + MAJ(b, c, d); e += t;
-	//
-	t = h + SIG1(e) + CH(e, f, g) + sm_K256[24] + auiW[24]; h = t + SIG0(a) + MAJ(a, b, c); d += t;
-	t = g + SIG1(d) + CH(d, e, f) + sm_K256[25] + auiW[25]; g = t + SIG0(h) + MAJ(h, a, b); c += t;
-	t = f + SIG1(c) + CH(c, d, e) + sm_K256[26] + auiW[26]; f = t + SIG0(g) + MAJ(g, h, a); b += t;
-	t = e + SIG1(b) + CH(b, c, d) + sm_K256[27] + auiW[27]; e = t + SIG0(f) + MAJ(f, g, h); a += t;
-	t = d + SIG1(a) + CH(a, b, c) + sm_K256[28] + auiW[28]; d = t + SIG0(e) + MAJ(e, f, g); h += t;
-	t = c + SIG1(h) + CH(h, a, b) + sm_K256[29] + auiW[29]; c = t + SIG0(d) + MAJ(d, e, f); g += t;
-	t = b + SIG1(g) + CH(g, h, a) + sm_K256[30] + auiW[30]; b = t + SIG0(c) + MAJ(c, d, e); f += t;
-	t = a + SIG1(f) + CH(f, g, h) + sm_K256[31] + auiW[31]; a = t + SIG0(b) + MAJ(b, c, d); e += t;
-	//
-	t = h + SIG1(e) + CH(e, f, g) + sm_K256[32] + auiW[32]; h = t + SIG0(a) + MAJ(a, b, c); d += t;
-	t = g + SIG1(d) + CH(d, e, f) + sm_K256[33] + auiW[33]; g = t + SIG0(h) + MAJ(h, a, b); c += t;
-	t = f + SIG1(c) + CH(c, d, e) + sm_K256[34] + auiW[34]; f = t + SIG0(g) + MAJ(g, h, a); b += t;
-	t = e + SIG1(b) + CH(b, c, d) + sm_K256[35] + auiW[35]; e = t + SIG0(f) + MAJ(f, g, h); a += t;
-	t = d + SIG1(a) + CH(a, b, c) + sm_K256[36] + auiW[36]; d = t + SIG0(e) + MAJ(e, f, g); h += t;
-	t = c + SIG1(h) + CH(h, a, b) + sm_K256[37] + auiW[37]; c = t + SIG0(d) + MAJ(d, e, f); g += t;
-	t = b + SIG1(g) + CH(g, h, a) + sm_K256[38] + auiW[38]; b = t + SIG0(c) + MAJ(c, d, e); f += t;
-	t = a + SIG1(f) + CH(f, g, h) + sm_K256[39] + auiW[39]; a = t + SIG0(b) + MAJ(b, c, d); e += t;
-	//
-	t = h + SIG1(e) + CH(e, f, g) + sm_K256[40] + auiW[40]; h = t + SIG0(a) + MAJ(a, b, c); d += t;
-	t = g + SIG1(d) + CH(d, e, f) + sm_K256[41] + auiW[41]; g = t + SIG0(h) + MAJ(h, a, b); c += t;
-	t = f + SIG1(c) + CH(c, d, e) + sm_K256[42] + auiW[42]; f = t + SIG0(g) + MAJ(g, h, a); b += t;
-	t = e + SIG1(b) + CH(b, c, d) + sm_K256[43] + auiW[43]; e = t + SIG0(f) + MAJ(f, g, h); a += t;
-	t = d + SIG1(a) + CH(a, b, c) + sm_K256[44] + auiW[44]; d = t + SIG0(e) + MAJ(e, f, g); h += t;
-	t = c + SIG1(h) + CH(h, a, b) + sm_K256[45] + auiW[45]; c = t + SIG0(d) + MAJ(d, e, f); g += t;
-	t = b + SIG1(g) + CH(g, h, a) + sm_K256[46] + auiW[46]; b = t + SIG0(c) + MAJ(c, d, e); f += t;
-	t = a + SIG1(f) + CH(f, g, h) + sm_K256[47] + auiW[47]; a = t + SIG0(b) + MAJ(b, c, d); e += t;
-	//
-	t = h + SIG1(e) + CH(e, f, g) + sm_K256[48] + auiW[48]; h = t + SIG0(a) + MAJ(a, b, c); d += t;
-	t = g + SIG1(d) + CH(d, e, f) + sm_K256[49] + auiW[49]; g = t + SIG0(h) + MAJ(h, a, b); c += t;
-	t = f + SIG1(c) + CH(c, d, e) + sm_K256[50] + auiW[50]; f = t + SIG0(g) + MAJ(g, h, a); b += t;
-	t = e + SIG1(b) + CH(b, c, d) + sm_K256[51] + auiW[51]; e = t + SIG0(f) + MAJ(f, g, h); a += t;
-	t = d + SIG1(a) + CH(a, b, c) + sm_K256[52] + auiW[52]; d = t + SIG0(e) + MAJ(e, f, g); h += t;
-	t = c + SIG1(h) + CH(h, a, b) + sm_K256[53] + auiW[53]; c = t + SIG0(d) + MAJ(d, e, f); g += t;
-	t = b + SIG1(g) + CH(g, h, a) + sm_K256[54] + auiW[54]; b = t + SIG0(c) + MAJ(c, d, e); f += t;
-	t = a + SIG1(f) + CH(f, g, h) + sm_K256[55] + auiW[55]; a = t + SIG0(b) + MAJ(b, c, d); e += t;
-	//
-	t = h + SIG1(e) + CH(e, f, g) + sm_K256[56] + auiW[56]; h = t + SIG0(a) + MAJ(a, b, c); d += t;
-	t = g + SIG1(d) + CH(d, e, f) + sm_K256[57] + auiW[57]; g = t + SIG0(h) + MAJ(h, a, b); c += t;
-	t = f + SIG1(c) + CH(c, d, e) + sm_K256[58] + auiW[58]; f = t + SIG0(g) + MAJ(g, h, a); b += t;
-	t = e + SIG1(b) + CH(b, c, d) + sm_K256[59] + auiW[59]; e = t + SIG0(f) + MAJ(f, g, h); a += t;
-	t = d + SIG1(a) + CH(a, b, c) + sm_K256[60] + auiW[60]; d = t + SIG0(e) + MAJ(e, f, g); h += t;
-	t = c + SIG1(h) + CH(h, a, b) + sm_K256[61] + auiW[61]; c = t + SIG0(d) + MAJ(d, e, f); g += t;
-	t = b + SIG1(g) + CH(g, h, a) + sm_K256[62] + auiW[62]; b = t + SIG0(c) + MAJ(c, d, e); f += t;
-	t = a + SIG1(f) + CH(f, g, h) + sm_K256[63] + auiW[63]; a = t + SIG0(b) + MAJ(b, c, d); e += t;
-	//
-	//OR
-	/*
-	unsigned int a, b, c, d, e, f, g, h, t1, t2;
-	a = m_auiBuf[0];
-	b = m_auiBuf[1];
-	c = m_auiBuf[2];
-	d = m_auiBuf[3];
-	e = m_auiBuf[4];
-	f = m_auiBuf[5];
-	g = m_auiBuf[6];
-	h = m_auiBuf[7];
-	//
-	for(i=0; i<64; i++)
+
+	for (int i = 0; i < 64; i++)
 	{
-		t1 = h + SIG1(e) + CH(e, f, g) + sm_K256[i] + auiW[i];
-		t2 = SIG0(a) + MAJ(a, b, c);
-		h = g;
-		g = f;
-		f = e;
-		e = d+t1;
-		d = c;
-		c = b;
-		b = a;
-		a = t1 + t2;
+		t = h + SIG1(e) + CH(e, f, g) + sm_K256[i] + auiW[i];
+		h = t + SIG0(a) + MAJ(a, b, c);
+		d += t;
+
+		std::swap(a, h);
+		std::swap(b, g);
+		std::swap(c, f);
+		std::swap(d, e);
+
+		e += t;
 	}
-	*/
+
 	m_auiBuf[0] += a;
 	m_auiBuf[1] += b;
 	m_auiBuf[2] += c;
@@ -262,4 +156,5 @@ void CSHA::Transform()
 	m_auiBuf[6] += g;
 	m_auiBuf[7] += h;
 }
+
 

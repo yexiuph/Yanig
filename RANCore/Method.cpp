@@ -28,7 +28,6 @@ IMethod::~IMethod()
 {
 }
 
-//Auxiliary Function
 void IMethod::Xor(char* buff, const char* chain)
 {
 	if (!m_bInit)
@@ -40,7 +39,6 @@ void IMethod::Xor(char* buff, const char* chain)
 	}
 }
 
-//Setting the Operation Mode
 void IMethod::SetMode(int iMode)
 {
 	if (false == m_bInit)
@@ -50,7 +48,6 @@ void IMethod::SetMode(int iMode)
 	m_iMode = iMode;
 }
 
-//Setting the Padding Mode
 void IMethod::SetPadding(int iPadding)
 {
 	if (false == m_bInit)
@@ -60,7 +57,6 @@ void IMethod::SetPadding(int iPadding)
 	m_iPadding = iPadding;
 }
 
-//Getters
 int IMethod::GetKeyLength()
 {
 	if (false == m_bInit)

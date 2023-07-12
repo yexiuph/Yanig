@@ -6,8 +6,8 @@
 using namespace std;
 
 //SHA Message Digest algorithm
-class CSHA
-{
+class CSHA {
+
 public:
 	//CONSTRUCTOR
 	CSHA();
@@ -52,47 +52,50 @@ inline unsigned int CSHA::CircularShift(unsigned int uiBits, unsigned int uiWord
 
 inline unsigned int CSHA::CH(unsigned int x, unsigned int y, unsigned int z)
 {
-	return ((x & (y ^ z)) ^ z);
+	return (x & y) ^ (~x & z);
 }
 
 inline unsigned int CSHA::MAJ(unsigned int x, unsigned int y, unsigned int z)
 {
-	return (((x | y) & z) | (x & y));
+	return (x & y) ^ (x & z) ^ (y & z);
 }
 
 inline unsigned int CSHA::SIG0(unsigned int x)
 {
-	return ((x >> 2) | (x << 30)) ^ ((x >> 13) | (x << 19)) ^ ((x >> 22) | (x << 10));
+	return (x >> 2) ^ (x >> 13) ^ (x >> 22);
 }
 
 inline unsigned int CSHA::SIG1(unsigned int x)
 {
-	return ((x >> 6) | (x << 26)) ^ ((x >> 11) | (x << 21)) ^ ((x >> 25) | (x << 7));
+	return (x >> 6) ^ (x >> 11) ^ (x >> 25);
 }
 
 inline unsigned int CSHA::sig0(unsigned int x)
 {
-	return ((x >> 7) | (x << 25)) ^ ((x >> 18) | (x << 14)) ^ (x >> 3);
+	return (x >> 7) ^ (x >> 18) ^ (x >> 3);
 }
 
 inline unsigned int CSHA::sig1(unsigned int x)
 {
-	return ((x >> 17) | (x << 15)) ^ ((x >> 19) | (x << 13)) ^ (x >> 10);
+	return (x >> 17) ^ (x >> 19) ^ (x >> 10);
 }
+
 
 inline void CSHA::Bytes2Word(unsigned char const* pcBytes, unsigned int& ruiWord)
 {
-	ruiWord = (unsigned int)*(pcBytes + 3) | (unsigned int)(*(pcBytes + 2) << 8) |
-		(unsigned int)(*(pcBytes + 1) << 16) | (unsigned int)(*pcBytes << 24);
+	ruiWord = static_cast<unsigned int>(pcBytes[3]) |
+		(static_cast<unsigned int>(pcBytes[2]) << 8) |
+		(static_cast<unsigned int>(pcBytes[1]) << 16) |
+		(static_cast<unsigned int>(pcBytes[0]) << 24);
 }
+
 
 inline void CSHA::Word2Bytes(unsigned int const& ruiWord, unsigned char* pcBytes)
 {
-	pcBytes += 3;
-	*pcBytes = ruiWord & 0xff;
-	*--pcBytes = (ruiWord >> 8) & 0xff;
-	*--pcBytes = (ruiWord >> 16) & 0xff;
-	*--pcBytes = (ruiWord >> 24) & 0xff;
+	*pcBytes++ = static_cast<unsigned char>((ruiWord >> 24) & 0xFF);
+	*pcBytes++ = static_cast<unsigned char>((ruiWord >> 16) & 0xFF);
+	*pcBytes++ = static_cast<unsigned char>((ruiWord >> 8) & 0xFF);
+	*pcBytes = static_cast<unsigned char>(ruiWord & 0xFF);
 }
 
 #endif // __SHA_H__
