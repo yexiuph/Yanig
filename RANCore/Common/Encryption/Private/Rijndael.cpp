@@ -1,10 +1,8 @@
-
-//Rijndael.cpp
 #include "pch.h"
-#include "./Rijndael.h"
-#include "./SHA.h"
-#include "./DoubleBuffering.h"
-#include "./ByteComposition.h"
+#include "Rijndael.h"
+//#include "./SHA.h" // TODO : YeXiuPH
+//#include "./DoubleBuffering.h" // TODO : YeXiuPH
+#include "ByteComposition.h"
 
 #include <exception>
 //#include <strstream>
@@ -936,13 +934,15 @@ string const CRijndael::sm_Version[VERSION] =
 	"0in123joydn11ps9",
 	"skrkrhtlvdj!@#wpfrmfjgrpgo!@#$qk",
 	"als!zjabsl@zpdltus#chlrkd^vmfaj*",
-	"R!E@d#i^t*_RIJNDAEL"
+	"R!E@d#i^t*_RIJNDAEL",
+	"YanigNanamanKayoKayYeXiuPH"
 };
 
 DWORD const CRijndael::sm_KeyLength[VERSION] =
 {
 	16,
 	16,
+	DEFAULT_KEY_LENGTH,
 	DEFAULT_KEY_LENGTH,
 	DEFAULT_KEY_LENGTH,
 	DEFAULT_KEY_LENGTH
@@ -1109,22 +1109,14 @@ void CRijndael::ResetChain()
 //Compute Signature
 void CRijndael::Signature(char* pcSig)
 {
-	constexpr int MAX_SIG_LENGTH = 48;
-	constexpr int AC_SIG_DATA_LENGTH = MAX_SIG_LENGTH - 7; // Length of "RIJNDAEL"
-
-	char acSigData[MAX_SIG_LENGTH];
-	memcpy(acSigData, "RIJNDAEL", 8); // Copy "RIJNDAEL" string
-	int iLen = 8;
-
-	// Append m_acKey to acSigData
+	//8+32+2+2+1+1+1
+	char acSigData[48] = { 0 };
+	strcat_s(acSigData, "RIJNDAEL");
+	int iLen = (int)strlen(acSigData);
 	memcpy(acSigData + iLen, m_acKey, m_keylength);
-	iLen += m_keylength;
-
-	// Append m_blockSize, m_keylength, m_iMode, and m_iPadding to acSigData
-	iLen += sprintf_s(acSigData + iLen, AC_SIG_DATA_LENGTH, "%d%d%d%d", m_blockSize, m_keylength, m_iMode, m_iPadding);
-
+	sprintf(acSigData + iLen + m_keylength, "%d%d%d%d", m_blockSize, m_keylength, m_iMode, m_iPadding);
 	CSHA oSHA;
-	oSHA.AddData(acSigData, iLen);
+	oSHA.AddData(acSigData, (int)strlen(acSigData));
 	oSHA.FinalDigest(pcSig);
 }
 
@@ -1163,26 +1155,34 @@ bool CRijndael::ComputeKeyString(int nVer, int nYear, int nLength, char const* d
 	return false;
 }
 
-void CRijndael::Base64EncodeKey(const unsigned char* in, char* result, int size)
+void CRijndael::Base64EncodeKey(unsigned char const* in, char* result, int size)
 {
-	constexpr char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	const char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-	if (size > 0)
-	{
-		size_t inputLength = static_cast<size_t>(size);
-		size_t i = 0;
-		size_t j = 0;
+	if (size > 0) {
+		size_t v;
+		size_t inputlength = (size_t)size;
 
-		while (i < inputLength)
+		for (size_t i = 0, j = 0; i < inputlength; i += 3, j += 4)
 		{
-			unsigned int v = in[i++];
-			v = (i < inputLength) ? (v << 8) | in[i++] : (v << 8);
-			v = (i < inputLength) ? (v << 8) | in[i++] : (v << 8);
+			v = in[i];
+			v = i + 1 < inputlength ? v << 8 | in[i + 1] : v << 8;
+			v = i + 2 < inputlength ? v << 8 | in[i + 2] : v << 8;
 
-			result[j++] = b64chars[(v >> 18) & 0x3F];
-			result[j++] = b64chars[(v >> 12) & 0x3F];
-			result[j++] = (i < inputLength) ? b64chars[(v >> 6) & 0x3F] : '=';
-			result[j++] = (i < inputLength) ? b64chars[v & 0x3F] : '=';
+			result[j] = b64chars[(v >> 18) & 0x3F];
+			result[j + 1] = b64chars[(v >> 12) & 0x3F];
+			if (i + 1 < inputlength) {
+				result[j + 2] = b64chars[(v >> 6) & 0x3F];
+			}
+			else {
+				result[j + 2] = '=';
+			}
+			if (i + 2 < inputlength) {
+				result[j + 3] = b64chars[v & 0x3F];
+			}
+			else {
+				result[j + 3] = '=';
+			}
 		}
 	}
 }
@@ -1191,93 +1191,76 @@ void CRijndael::Base64EncodeKey(const unsigned char* in, char* result, int size)
 //Rijndael's default block size (128-bit).
 // in         - The plaintext
 // result     - The ciphertext generated from a plaintext using the key
-void CRijndael::DefEncryptBlock(const char* in, char* result)
+void CRijndael::DefEncryptBlock(char const* in, char* result)
 {
 	if (false == m_bInit)
 		throw runtime_error(string(sm_szErrorMsg1));
-
-	const int* Ker = m_Ke[0];
-	uint32_t t0 = (static_cast<unsigned char>(in[0]) << 24) |
-		(static_cast<unsigned char>(in[1]) << 16) |
-		(static_cast<unsigned char>(in[2]) << 8) |
-		static_cast<unsigned char>(in[3]);
-	t0 ^= Ker[0];
-
-	uint32_t t1 = (static_cast<unsigned char>(in[4]) << 24) |
-		(static_cast<unsigned char>(in[5]) << 16) |
-		(static_cast<unsigned char>(in[6]) << 8) |
-		static_cast<unsigned char>(in[7]);
-	t1 ^= Ker[1];
-
-	uint32_t t2 = (static_cast<unsigned char>(in[8]) << 24) |
-		(static_cast<unsigned char>(in[9]) << 16) |
-		(static_cast<unsigned char>(in[10]) << 8) |
-		static_cast<unsigned char>(in[11]);
-	t2 ^= Ker[2];
-
-	uint32_t t3 = (static_cast<unsigned char>(in[12]) << 24) |
-		(static_cast<unsigned char>(in[13]) << 16) |
-		(static_cast<unsigned char>(in[14]) << 8) |
-		static_cast<unsigned char>(in[15]);
-	t3 ^= Ker[3];
-
-	uint32_t a0, a1, a2, a3;
-	for (int r = 1; r < m_iROUNDS; ++r)
+	int* Ker = m_Ke[0];
+	int t0 = ((unsigned char)*(in++) << 24);
+	t0 |= ((unsigned char)*(in++) << 16);
+	t0 |= ((unsigned char)*(in++) << 8);
+	(t0 |= (unsigned char)*(in++)) ^= Ker[0];
+	int t1 = ((unsigned char)*(in++) << 24);
+	t1 |= ((unsigned char)*(in++) << 16);
+	t1 |= ((unsigned char)*(in++) << 8);
+	(t1 |= (unsigned char)*(in++)) ^= Ker[1];
+	int t2 = ((unsigned char)*(in++) << 24);
+	t2 |= ((unsigned char)*(in++) << 16);
+	t2 |= ((unsigned char)*(in++) << 8);
+	(t2 |= (unsigned char)*(in++)) ^= Ker[2];
+	int t3 = ((unsigned char)*(in++) << 24);
+	t3 |= ((unsigned char)*(in++) << 16);
+	t3 |= ((unsigned char)*(in++) << 8);
+	(t3 |= (unsigned char)*(in++)) ^= Ker[3];
+	int a0, a1, a2, a3;
+	//Apply Round Transforms
+	for (int r = 1; r < m_iROUNDS; r++)
 	{
 		Ker = m_Ke[r];
-
 		a0 = (sm_T1[(t0 >> 24) & 0xFF] ^
 			sm_T2[(t1 >> 16) & 0xFF] ^
 			sm_T3[(t2 >> 8) & 0xFF] ^
 			sm_T4[t3 & 0xFF]) ^ Ker[0];
-
 		a1 = (sm_T1[(t1 >> 24) & 0xFF] ^
 			sm_T2[(t2 >> 16) & 0xFF] ^
 			sm_T3[(t3 >> 8) & 0xFF] ^
 			sm_T4[t0 & 0xFF]) ^ Ker[1];
-
 		a2 = (sm_T1[(t2 >> 24) & 0xFF] ^
 			sm_T2[(t3 >> 16) & 0xFF] ^
 			sm_T3[(t0 >> 8) & 0xFF] ^
 			sm_T4[t1 & 0xFF]) ^ Ker[2];
-
 		a3 = (sm_T1[(t3 >> 24) & 0xFF] ^
 			sm_T2[(t0 >> 16) & 0xFF] ^
 			sm_T3[(t1 >> 8) & 0xFF] ^
 			sm_T4[t2 & 0xFF]) ^ Ker[3];
-
 		t0 = a0;
 		t1 = a1;
 		t2 = a2;
 		t3 = a3;
 	}
-
+	//Last Round is special
 	Ker = m_Ke[m_iROUNDS];
-	uint32_t tt = Ker[0];
+	int tt = Ker[0];
 	result[0] = sm_S[(t0 >> 24) & 0xFF] ^ (tt >> 24);
 	result[1] = sm_S[(t1 >> 16) & 0xFF] ^ (tt >> 16);
 	result[2] = sm_S[(t2 >> 8) & 0xFF] ^ (tt >> 8);
 	result[3] = sm_S[t3 & 0xFF] ^ tt;
-
 	tt = Ker[1];
 	result[4] = sm_S[(t1 >> 24) & 0xFF] ^ (tt >> 24);
 	result[5] = sm_S[(t2 >> 16) & 0xFF] ^ (tt >> 16);
 	result[6] = sm_S[(t3 >> 8) & 0xFF] ^ (tt >> 8);
 	result[7] = sm_S[t0 & 0xFF] ^ tt;
-
 	tt = Ker[2];
 	result[8] = sm_S[(t2 >> 24) & 0xFF] ^ (tt >> 24);
 	result[9] = sm_S[(t3 >> 16) & 0xFF] ^ (tt >> 16);
 	result[10] = sm_S[(t0 >> 8) & 0xFF] ^ (tt >> 8);
 	result[11] = sm_S[t1 & 0xFF] ^ tt;
-
 	tt = Ker[3];
 	result[12] = sm_S[(t3 >> 24) & 0xFF] ^ (tt >> 24);
 	result[13] = sm_S[(t0 >> 16) & 0xFF] ^ (tt >> 16);
 	result[14] = sm_S[(t1 >> 8) & 0xFF] ^ (tt >> 8);
 	result[15] = sm_S[t2 & 0xFF] ^ tt;
 }
-
 
 //Convenience method to decrypt exactly one block of plaintext, assuming
 //Rijndael's default block size (128-bit).
@@ -1287,86 +1270,65 @@ void CRijndael::DefDecryptBlock(char const* in, char* result)
 {
 	if (false == m_bInit)
 		throw runtime_error(string(sm_szErrorMsg1));
-
 	int* Kdr = m_Kd[0];
-	uint32_t t0 = static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 24;
-	t0 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 16;
-	t0 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 8;
-	t0 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++));
-	t0 ^= Kdr[0];
-
-	uint32_t t1 = static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 24;
-	t1 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 16;
-	t1 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 8;
-	t1 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++));
-	t1 ^= Kdr[1];
-
-	uint32_t t2 = static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 24;
-	t2 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 16;
-	t2 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 8;
-	t2 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++));
-	t2 ^= Kdr[2];
-
-	uint32_t t3 = static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 24;
-	t3 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 16;
-	t3 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++)) << 8;
-	t3 |= static_cast<uint32_t>(*reinterpret_cast<const unsigned char*>(in++));
-	t3 ^= Kdr[3];
-
-	uint32_t a0, a1, a2, a3;
-	for (int r = 1; r < m_iROUNDS; ++r) // apply round transforms
+	int t0 = ((unsigned char)*(in++) << 24);
+	t0 = t0 | ((unsigned char)*(in++) << 16);
+	t0 |= ((unsigned char)*(in++) << 8);
+	(t0 |= (unsigned char)*(in++)) ^= Kdr[0];
+	int t1 = ((unsigned char)*(in++) << 24);
+	t1 |= ((unsigned char)*(in++) << 16);
+	t1 |= ((unsigned char)*(in++) << 8);
+	(t1 |= (unsigned char)*(in++)) ^= Kdr[1];
+	int t2 = ((unsigned char)*(in++) << 24);
+	t2 |= ((unsigned char)*(in++) << 16);
+	t2 |= ((unsigned char)*(in++) << 8);
+	(t2 |= (unsigned char)*(in++)) ^= Kdr[2];
+	int t3 = ((unsigned char)*(in++) << 24);
+	t3 |= ((unsigned char)*(in++) << 16);
+	t3 |= ((unsigned char)*(in++) << 8);
+	(t3 |= (unsigned char)*(in++)) ^= Kdr[3];
+	int a0, a1, a2, a3;
+	for (int r = 1; r < m_iROUNDS; r++) // apply round transforms
 	{
 		Kdr = m_Kd[r];
-
-		a0 = sm_T5[(t0 >> 24) & 0xFF] ^
+		a0 = (sm_T5[(t0 >> 24) & 0xFF] ^
 			sm_T6[(t3 >> 16) & 0xFF] ^
 			sm_T7[(t2 >> 8) & 0xFF] ^
-			sm_T8[t1 & 0xFF] ^
-			Kdr[0];
-
-		a1 = sm_T5[(t1 >> 24) & 0xFF] ^
+			sm_T8[t1 & 0xFF]) ^ Kdr[0];
+		a1 = (sm_T5[(t1 >> 24) & 0xFF] ^
 			sm_T6[(t0 >> 16) & 0xFF] ^
 			sm_T7[(t3 >> 8) & 0xFF] ^
-			sm_T8[t2 & 0xFF] ^
-			Kdr[1];
-
-		a2 = sm_T5[(t2 >> 24) & 0xFF] ^
+			sm_T8[t2 & 0xFF]) ^ Kdr[1];
+		a2 = (sm_T5[(t2 >> 24) & 0xFF] ^
 			sm_T6[(t1 >> 16) & 0xFF] ^
 			sm_T7[(t0 >> 8) & 0xFF] ^
-			sm_T8[t3 & 0xFF] ^
-			Kdr[2];
-
-		a3 = sm_T5[(t3 >> 24) & 0xFF] ^
+			sm_T8[t3 & 0xFF]) ^ Kdr[2];
+		a3 = (sm_T5[(t3 >> 24) & 0xFF] ^
 			sm_T6[(t2 >> 16) & 0xFF] ^
 			sm_T7[(t1 >> 8) & 0xFF] ^
-			sm_T8[t0 & 0xFF] ^
-			Kdr[3];
-
+			sm_T8[t0 & 0xFF]) ^ Kdr[3];
 		t0 = a0;
 		t1 = a1;
 		t2 = a2;
 		t3 = a3;
 	}
-
+	//Last Round is special
 	Kdr = m_Kd[m_iROUNDS];
-	uint32_t tt = Kdr[0];
+	int tt = Kdr[0];
 	result[0] = sm_Si[(t0 >> 24) & 0xFF] ^ (tt >> 24);
 	result[1] = sm_Si[(t3 >> 16) & 0xFF] ^ (tt >> 16);
 	result[2] = sm_Si[(t2 >> 8) & 0xFF] ^ (tt >> 8);
 	result[3] = sm_Si[t1 & 0xFF] ^ tt;
-
 	tt = Kdr[1];
 	result[4] = sm_Si[(t1 >> 24) & 0xFF] ^ (tt >> 24);
 	result[5] = sm_Si[(t0 >> 16) & 0xFF] ^ (tt >> 16);
 	result[6] = sm_Si[(t3 >> 8) & 0xFF] ^ (tt >> 8);
 	result[7] = sm_Si[t2 & 0xFF] ^ tt;
-
 	tt = Kdr[2];
 	result[8] = sm_Si[(t2 >> 24) & 0xFF] ^ (tt >> 24);
 	result[9] = sm_Si[(t1 >> 16) & 0xFF] ^ (tt >> 16);
 	result[10] = sm_Si[(t0 >> 8) & 0xFF] ^ (tt >> 8);
 	result[11] = sm_Si[t3 & 0xFF] ^ tt;
-
 	tt = Kdr[3];
 	result[12] = sm_Si[(t3 >> 24) & 0xFF] ^ (tt >> 24);
 	result[13] = sm_Si[(t2 >> 16) & 0xFF] ^ (tt >> 16);
@@ -1374,46 +1336,48 @@ void CRijndael::DefDecryptBlock(char const* in, char* result)
 	result[15] = sm_Si[t0 & 0xFF] ^ tt;
 }
 
-void CRijndael::EncryptBlock(const char* in, char* result)
+//Encrypt exactly one block of plaintext.
+// in           - The plaintext.
+// result       - The ciphertext generated from a plaintext using the key.
+void CRijndael::EncryptBlock(char const* in, char* result)
 {
 	if (false == m_bInit)
 		throw runtime_error(string(sm_szErrorMsg1));
-
 	if (DEFAULT_BLOCK_SIZE == m_blockSize)
 	{
 		DefEncryptBlock(in, result);
 		return;
 	}
-
-	const int BC = m_blockSize / 4;
-	const int SC = (BC == 4) ? 0 : (BC == 6 ? 1 : 2);
-	const int s1 = sm_shifts[SC][1][0];
-	const int s2 = sm_shifts[SC][2][0];
-	const int s3 = sm_shifts[SC][3][0];
-
-	uint32_t t[8];
-	memcpy(t, in, BC * sizeof(uint32_t));
-
-	for (int r = 0; r < m_iROUNDS; ++r)
+	int BC = m_blockSize / 4;
+	int SC = (BC == 4) ? 0 : (BC == 6 ? 1 : 2);
+	int s1 = sm_shifts[SC][1][0];
+	int s2 = sm_shifts[SC][2][0];
+	int s3 = sm_shifts[SC][3][0];
+	int i;
+	int tt;
+	int* pi = t;
+	for (i = 0; i < BC; i++)
 	{
-		const int* Ke = m_Ke[r];
-		uint32_t a[8];
-
-		for (int i = 0; i < BC; ++i)
-		{
+		*pi = ((unsigned char)*(in++) << 24);
+		*pi |= ((unsigned char)*(in++) << 16);
+		*pi |= ((unsigned char)*(in++) << 8);
+		(*(pi++) |= (unsigned char)*(in++)) ^= m_Ke[0][i];
+	}
+	//Apply Round Transforms
+	for (int r = 1; r < m_iROUNDS; r++)
+	{
+		for (i = 0; i < BC; i++)
 			a[i] = (sm_T1[(t[i] >> 24) & 0xFF] ^
 				sm_T2[(t[(i + s1) % BC] >> 16) & 0xFF] ^
 				sm_T3[(t[(i + s2) % BC] >> 8) & 0xFF] ^
-				sm_T4[t[(i + s3) % BC] & 0xFF]) ^ Ke[i];
-		}
-
-		memcpy(t, a, BC * sizeof(uint32_t));
+				sm_T4[t[(i + s3) % BC] & 0xFF]) ^ m_Ke[r][i];
+		memcpy(t, a, 4 * BC);
 	}
-
-	int j = 0;
-	for (int i = 0; i < BC; ++i)
+	int j;
+	//Last Round is Special
+	for (i = 0, j = 0; i < BC; i++)
 	{
-		const int tt = m_Ke[m_iROUNDS][i];
+		tt = m_Ke[m_iROUNDS][i];
 		result[j++] = sm_S[(t[i] >> 24) & 0xFF] ^ (tt >> 24);
 		result[j++] = sm_S[(t[(i + s1) % BC] >> 16) & 0xFF] ^ (tt >> 16);
 		result[j++] = sm_S[(t[(i + s2) % BC] >> 8) & 0xFF] ^ (tt >> 8);
@@ -1421,46 +1385,48 @@ void CRijndael::EncryptBlock(const char* in, char* result)
 	}
 }
 
-void CRijndael::DecryptBlock(const char* in, char* result)
+//Decrypt exactly one block of ciphertext.
+// in         - The ciphertext.
+// result     - The plaintext generated from a ciphertext using the session key.
+void CRijndael::DecryptBlock(char const* in, char* result)
 {
 	if (false == m_bInit)
 		throw runtime_error(string(sm_szErrorMsg1));
-
 	if (DEFAULT_BLOCK_SIZE == m_blockSize)
 	{
 		DefDecryptBlock(in, result);
 		return;
 	}
-
-	const int BC = m_blockSize / 4;
-	const int SC = BC == 4 ? 0 : (BC == 6 ? 1 : 2);
-	const int s1 = sm_shifts[SC][1][1];
-	const int s2 = sm_shifts[SC][2][1];
-	const int s3 = sm_shifts[SC][3][1];
-
-	uint32_t t[8];
-	memcpy(t, in, BC * sizeof(uint32_t));
-
-	for (int r = 0; r < m_iROUNDS; ++r)
+	int BC = m_blockSize / 4;
+	int SC = BC == 4 ? 0 : (BC == 6 ? 1 : 2);
+	int s1 = sm_shifts[SC][1][1];
+	int s2 = sm_shifts[SC][2][1];
+	int s3 = sm_shifts[SC][3][1];
+	int i;
+	int tt;
+	int* pi = t;
+	for (i = 0; i < BC; i++)
 	{
-		const int* Kd = m_Kd[r];
-		uint32_t a[8];
-
-		for (int i = 0; i < BC; ++i)
-		{
+		*pi = ((unsigned char)*(in++) << 24);
+		*pi |= ((unsigned char)*(in++) << 16);
+		*pi |= ((unsigned char)*(in++) << 8);
+		(*(pi++) |= (unsigned char)*(in++)) ^= m_Kd[0][i];
+	}
+	//Apply Round Transforms
+	for (int r = 1; r < m_iROUNDS; r++)
+	{
+		for (i = 0; i < BC; i++)
 			a[i] = (sm_T5[(t[i] >> 24) & 0xFF] ^
 				sm_T6[(t[(i + s1) % BC] >> 16) & 0xFF] ^
 				sm_T7[(t[(i + s2) % BC] >> 8) & 0xFF] ^
-				sm_T8[t[(i + s3) % BC] & 0xFF]) ^ Kd[i];
-		}
-
-		memcpy(t, a, BC * sizeof(uint32_t));
+				sm_T8[t[(i + s3) % BC] & 0xFF]) ^ m_Kd[r][i];
+		memcpy(t, a, 4 * BC);
 	}
-
-	int j = 0;
-	for (int i = 0; i < BC; ++i)
+	int j;
+	//Last Round is Special
+	for (i = 0, j = 0; i < BC; i++)
 	{
-		const int tt = m_Kd[m_iROUNDS][i];
+		tt = m_Kd[m_iROUNDS][i];
 		result[j++] = sm_Si[(t[i] >> 24) & 0xFF] ^ (tt >> 24);
 		result[j++] = sm_Si[(t[(i + s1) % BC] >> 16) & 0xFF] ^ (tt >> 16);
 		result[j++] = sm_Si[(t[(i + s2) % BC] >> 8) & 0xFF] ^ (tt >> 8);
@@ -1468,24 +1434,19 @@ void CRijndael::DecryptBlock(const char* in, char* result)
 	}
 }
 
-
-void CRijndael::Encrypt(const char* in, char* result, size_t n)
+void CRijndael::Encrypt(char const* in, char* result, size_t n)
 {
 	if (false == m_bInit)
 		throw runtime_error(string(sm_szErrorMsg1));
-
-	// n should be > 0 and multiple of m_blockSize
+	//n should be > 0 and multiple of m_blockSize
 	if (n < 1 || n % m_blockSize != 0)
 		throw runtime_error(string(sm_szErrorMsg6));
-
-	const int numBlocks = static_cast<int>(n / m_blockSize);
-
-	if (CBC == m_iMode) // CBC mode, using the Chain
+	int i;
+	char const* pin;
+	char* presult;
+	if (CBC == m_iMode) //CBC mode, using the Chain
 	{
-		const char* pin = in;
-		char* presult = result;
-
-		for (int i = 0; i < numBlocks; ++i)
+		for (i = 0, pin = in, presult = result; i < (int)n / m_blockSize; i++)
 		{
 			Xor(m_chain, pin);
 			EncryptBlock(m_chain, presult);
@@ -1494,12 +1455,9 @@ void CRijndael::Encrypt(const char* in, char* result, size_t n)
 			presult += m_blockSize;
 		}
 	}
-	else if (CFB == m_iMode) // CFB mode, using the Chain
+	else if (CFB == m_iMode) //CFB mode, using the Chain
 	{
-		const char* pin = in;
-		char* presult = result;
-
-		for (int i = 0; i < numBlocks; ++i)
+		for (i = 0, pin = in, presult = result; i < (int)n / m_blockSize; i++)
 		{
 			EncryptBlock(m_chain, presult);
 			Xor(presult, pin);
@@ -1508,12 +1466,9 @@ void CRijndael::Encrypt(const char* in, char* result, size_t n)
 			presult += m_blockSize;
 		}
 	}
-	else // ECB mode, not using the Chain
+	else //ECB mode, not using the Chain
 	{
-		const char* pin = in;
-		char* presult = result;
-
-		for (int i = 0; i < numBlocks; ++i)
+		for (i = 0, pin = in, presult = result; i < (int)n / m_blockSize; i++)
 		{
 			EncryptBlock(pin, presult);
 			pin += m_blockSize;
@@ -1522,24 +1477,19 @@ void CRijndael::Encrypt(const char* in, char* result, size_t n)
 	}
 }
 
-
-void CRijndael::Decrypt(const char* in, char* result, size_t n)
+void CRijndael::Decrypt(char const* in, char* result, size_t n)
 {
 	if (false == m_bInit)
 		throw runtime_error(string(sm_szErrorMsg1));
-
-	// n should be > 0 and multiple of m_blockSize
+	//n should be > 0 and multiple of m_blockSize
 	if (n < 1 || n % m_blockSize != 0)
 		throw runtime_error(string(sm_szErrorMsg6));
-
-	const int numBlocks = static_cast<int>(n / m_blockSize);
-
-	if (CBC == m_iMode) // CBC mode, using the Chain
+	int i;
+	char const* pin;
+	char* presult;
+	if (CBC == m_iMode) //CBC mode, using the Chain
 	{
-		const char* pin = in;
-		char* presult = result;
-
-		for (int i = 0; i < numBlocks; ++i)
+		for (i = 0, pin = in, presult = result; i < (int)n / m_blockSize; i++)
 		{
 			DecryptBlock(pin, presult);
 			Xor(presult, m_chain);
@@ -1548,26 +1498,21 @@ void CRijndael::Decrypt(const char* in, char* result, size_t n)
 			presult += m_blockSize;
 		}
 	}
-	else if (CFB == m_iMode) // CFB mode, using the Chain, not using Decrypt()
+	else if (CFB == m_iMode) //CFB mode, using the Chain, not using Decrypt()
 	{
-		const char* pin = in;
-		char* presult = result;
-
-		for (int i = 0; i < numBlocks; ++i)
+		for (i = 0, pin = in, presult = result; i < (int)n / m_blockSize; i++)
 		{
 			EncryptBlock(m_chain, presult);
+			//memcpy(presult, pin, m_blockSize);
 			Xor(presult, pin);
 			memcpy(m_chain, pin, m_blockSize);
 			pin += m_blockSize;
 			presult += m_blockSize;
 		}
 	}
-	else // ECB mode, not using the Chain
+	else //ECB mode, not using the Chain
 	{
-		const char* pin = in;
-		char* presult = result;
-
-		for (int i = 0; i < numBlocks; ++i)
+		for (i = 0, pin = in, presult = result; i < (int)n / m_blockSize; i++)
 		{
 			DecryptBlock(pin, presult);
 			pin += m_blockSize;
@@ -1576,123 +1521,189 @@ void CRijndael::Decrypt(const char* in, char* result, size_t n)
 	}
 }
 
-void CRijndael::EncryptFile(const string& rostrFileIn, const string& rostrFileOut)
+void CRijndael::EncryptFile(string const& rostrFileIn, string const& rostrFileOut)
 {
 	if (false == m_bInit)
 		throw runtime_error(string(sm_szErrorMsg1));
-
-	// Check if the same file for input and output
+	//Check if the same file for input and output
 	if (rostrFileIn == rostrFileOut)
 	{
-		string ostrMsg = sm_szErrorMsg8;
+		//ostrstream ostr;
+		//ostr << sm_szErrorMsg8 << rostrFileIn << "!" << ends;
+		//string ostrMsg = ostr.str();
+		//ostr.freeze(false);
+
+		string ostrMsg;
+		ostrMsg = sm_szErrorMsg8;
 		ostrMsg += rostrFileIn;
 		ostrMsg += _T("!");
+
 		throw runtime_error(ostrMsg);
 	}
-
-	// Open Input File
+	//Open Input File
 	ifstream in(rostrFileIn.c_str(), ios::binary);
 	if (!in)
 	{
-		string ostrMsg = sm_szErrorMsg7;
+		//ostrstream ostr;
+		//ostr << sm_szErrorMsg7 << rostrFileIn << "!" << ends;
+		//string ostrMsg = ostr.str();
+		//ostr.freeze(false);
+
+		string ostrMsg;
+		ostrMsg = sm_szErrorMsg7;
 		ostrMsg += rostrFileIn;
 		ostrMsg += _T("!");
+
 		throw runtime_error(ostrMsg);
 	}
-
-	// Open Output File
+	//Open Output File
 	ofstream out(rostrFileOut.c_str(), ios::binary);
 	if (!out)
 	{
-		string ostrMsg = sm_szErrorMsg7;
-		ostrMsg += rostrFileOut;
+		//ostrstream ostr;
+		//ostr << sm_szErrorMsg7 << rostrFileOut << "!" << ends;
+		//string ostrMsg = ostr.str();
+		//ostr.freeze(false);
+
+		string ostrMsg;
+		ostrMsg = sm_szErrorMsg7;
+		ostrMsg += rostrFileIn;
 		ostrMsg += _T("!");
+
 		throw runtime_error(ostrMsg);
 	}
-
-	// Computing the signature
+	//Computing the signature
 	char acSig[33] = { 0 };
 	Signature(acSig);
-
-	// Writing the Signature
+	//Writing the Signature
 	out.write(acSig, 32);
-
-	// Reading from file
+	//Resetting the chain
+	ResetChain();
+	//Reading from file
 	char szLargeBuff[BUFF_LEN + 1] = { 0 };
 	char szBuffIn[DATA_LEN + 1] = { 0 };
 	char szBuffOut[DATA_LEN + 1] = { 0 };
-
 	CDoubleBuffering oDoubleBuffering(in, szLargeBuff, BUFF_LEN, DATA_LEN);
 	int iRead;
-	int iTotalRead = 0;
-
 	while ((iRead = oDoubleBuffering.GetData(szBuffIn)) > 0)
 	{
 		if (iRead < DATA_LEN)
 			iRead = Pad(szBuffIn, iRead);
-
-		// Encrypting
+		//Encrypting
 		Encrypt(szBuffIn, szBuffOut, iRead);
-
-		// Writing to output file
 		out.write(szBuffOut, iRead);
-		iTotalRead += iRead;
 	}
-
 	in.close();
 	out.close();
 }
 
-
-void CRijndael::DecryptFile(const string& rostrFileIn, const string& rostrFileOut)
+void CRijndael::DecryptFile(string const& rostrFileIn, string const& rostrFileOut)
 {
-	if (!m_bInit)
+	if (false == m_bInit)
 		throw runtime_error(string(sm_szErrorMsg1));
-
+	//Check if the same file for input and output
 	if (rostrFileIn == rostrFileOut)
-		throw runtime_error(sm_szErrorMsg8 + rostrFileIn + "!");
+	{
+		//ostrstream ostr;
+		//ostr << sm_szErrorMsg8 << rostrFileIn << "!" << ends;
+		//string ostrMsg = ostr.str();
+		//ostr.freeze(false);
 
-	ifstream in(rostrFileIn, ios::binary);
+		string ostrMsg;
+		ostrMsg = sm_szErrorMsg8;
+		ostrMsg += rostrFileIn;
+		ostrMsg += _T("!");
+
+		throw runtime_error(ostrMsg);
+	}
+	//Open Input File
+	ifstream in(rostrFileIn.c_str(), ios::binary);
 	if (!in)
-		throw runtime_error(sm_szErrorMsg7 + rostrFileIn + "!");
+	{
+		//ostrstream ostr;
+		//ostr << sm_szErrorMsg7 << rostrFileIn << "!" << ends;
+		//string ostrMsg = ostr.str();
+		//ostr.freeze(false);
 
-	ofstream out(rostrFileOut, ios::binary);
+		string ostrMsg;
+		ostrMsg = sm_szErrorMsg7;
+		ostrMsg += rostrFileIn;
+		ostrMsg += _T("!");
+
+		throw runtime_error(ostrMsg);
+	}
+	//Open Output File
+	ofstream out(rostrFileOut.c_str(), ios::binary);
 	if (!out)
-		throw runtime_error(sm_szErrorMsg7 + rostrFileOut + "!");
+	{
+		//ostrstream ostr;
+		//ostr << sm_szErrorMsg7 << rostrFileOut << "!" << ends;
+		//string ostrMsg = ostr.str();
+		//ostr.freeze(false);
 
+		string ostrMsg;
+		ostrMsg = sm_szErrorMsg7;
+		ostrMsg += rostrFileIn;
+		ostrMsg += _T("!");
+
+		throw runtime_error(ostrMsg);
+	}
+	//Computing the signature
 	char acSig[33] = { 0 };
 	Signature(acSig);
 	char acSig1[33] = { 0 };
+	//Reading the Signature
 	in.read(acSig1, 32);
-
+	//Compare the signatures
 	if (memcmp(acSig1, acSig, 32) != 0)
-		throw runtime_error(sm_szErrorMsg9 + rostrFileIn + sm_szErrorMsg10);
-
-	ResetChain();
-
-	const int BUFF_LEN = 8192;  // Adjust the buffer size according to your needs
-	char szBuff[BUFF_LEN];
-
-	while (in.read(szBuff, BUFF_LEN))
 	{
-		const int bytesRead = static_cast<int>(in.gcount());
-		char szDecryptedBuff[BUFF_LEN];
-		Decrypt(szBuff, szDecryptedBuff, bytesRead);
-		out.write(szDecryptedBuff, bytesRead);
-	}
+		//ostrstream ostr;
+		//ostr << sm_szErrorMsg9 << rostrFileIn << sm_szErrorMsg10 << ends;
+		//string ostrMsg = ostr.str();
+		//ostr.freeze(false);
 
+		string ostrMsg;
+		ostrMsg = sm_szErrorMsg9;
+		ostrMsg += rostrFileIn;
+		ostrMsg += sm_szErrorMsg10;
+
+		throw runtime_error(ostrMsg);
+	}
+	//Resetting the chain
+	ResetChain();
+	//Reading from file
+	char szLargeBuff[BUFF_LEN + 1] = { 0 };
+	char szBuffIn[DATA_LEN + 1] = { 0 };
+	char szBuffOut[DATA_LEN + 1] = { 0 };
+	CDoubleBuffering oDoubleBuffering(in, szLargeBuff, BUFF_LEN, DATA_LEN);
+	int iRead;
+	while ((iRead = oDoubleBuffering.GetData(szBuffIn)) > 0)
+	{
+		//Decrypting
+		Decrypt(szBuffIn, szBuffOut, iRead);
+		out.write(szBuffOut, iRead);
+	}
 	in.close();
 	out.close();
 }
 
-
 void CRijndael::EncryptEx(const char* in, char* out, int n)
 {
+	int iLen = n;
+
+	//Estimate Padding
+	int iLen1 = GetEncryptLength(n);
+	char* pcIn = new char[iLen1];
+
+	memcpy(pcIn, in, n);
+
 	ResetChain();
 	if (GetBlockSize() > -1)
-		Pad(const_cast<char*>(in), n);
+		Pad(pcIn, n);
 
-	Encrypt(in, out, n);
+	Encrypt(pcIn, out, iLen1);
+
+	delete[] pcIn;
 }
 
 void CRijndael::DecryptEx(const char* in, char* out, int n)
@@ -1703,6 +1714,11 @@ void CRijndael::DecryptEx(const char* in, char* out, int n)
 
 void CRijndael::DecryptEx(char* in, int n)
 {
+	char* pcIn = new char[n];
+	memcpy(pcIn, in, n);
+
 	ResetChain();
-	Decrypt(in, in, n);
+	Decrypt(pcIn, in, n);
+
+	delete[] pcIn;
 }
