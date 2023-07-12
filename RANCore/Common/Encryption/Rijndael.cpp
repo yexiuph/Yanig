@@ -1,10 +1,10 @@
 
 //Rijndael.cpp
 #include "pch.h"
-#include "./Rijndael.h"
-#include "./SHA.h"
-#include "./DoubleBuffering.h"
-#include "./ByteComposition.h"
+#include "Rijndael.h"
+#include "SHA.h"
+#include "DoubleBuffering.h"
+#include "ByteComposition.h"
 
 #include <exception>
 //#include <strstream>
