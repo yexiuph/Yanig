@@ -25,6 +25,9 @@
     <Filter Include="Source Files\Common\Encryption">
       <UniqueIdentifier>{3346ca8f-2c4e-4f2a-8dcb-5dd1b770b7b5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Common\GameLogic">
+      <UniqueIdentifier>{401b7409-16b6-43e8-8a64-cef696399eee}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -53,6 +56,12 @@
     </ClInclude>
     <ClInclude Include="Common\Encryption\StlFunctions.h">
       <Filter>Header Files\Common\Encryption</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\GameLogic\GLQuadTree.h">
+      <Filter>Header Files\Common\GameLogic</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\GameLogic\GLList.h">
+      <Filter>Header Files\Common\GameLogic</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

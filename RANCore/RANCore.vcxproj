@@ -121,7 +121,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>./;./Common;./Common/Encryption;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./Common;./Common/Encryption;./Common/GameLogic;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalHeaderUnitDependencies>
       </AdditionalHeaderUnitDependencies>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -160,6 +160,8 @@
     <ClInclude Include="Common\Encryption\Rijndael.h" />
     <ClInclude Include="Common\Encryption\SHA.h" />
     <ClInclude Include="Common\Encryption\StlFunctions.h" />
+    <ClInclude Include="Common\GameLogic\GLList.h" />
+    <ClInclude Include="Common\GameLogic\GLQuadTree.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RANCore.h" />
