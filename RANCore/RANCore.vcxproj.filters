@@ -19,6 +19,12 @@
     <Filter Include="Header Files\Common">
       <UniqueIdentifier>{df94d2c8-cc37-483b-82d6-5c9e4412a235}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Common\Encryption">
+      <UniqueIdentifier>{fb57fab9-259c-4fb0-ad13-c95bcbb42c5b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Common\Encryption">
+      <UniqueIdentifier>{3346ca8f-2c4e-4f2a-8dcb-5dd1b770b7b5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -30,23 +36,23 @@
     <ClInclude Include="RANCore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ByteComposition.h">
-      <Filter>Header Files\Common</Filter>
+    <ClInclude Include="Common\Encryption\ByteComposition.h">
+      <Filter>Header Files\Common\Encryption</Filter>
     </ClInclude>
-    <ClInclude Include="Method.h">
-      <Filter>Header Files\Common</Filter>
+    <ClInclude Include="Common\Encryption\DoubleBuffering.h">
+      <Filter>Header Files\Common\Encryption</Filter>
     </ClInclude>
-    <ClInclude Include="Rijndael.h">
-      <Filter>Header Files\Common</Filter>
+    <ClInclude Include="Common\Encryption\Method.h">
+      <Filter>Header Files\Common\Encryption</Filter>
     </ClInclude>
-    <ClInclude Include="SHA.h">
-      <Filter>Header Files\Common</Filter>
+    <ClInclude Include="Common\Encryption\Rijndael.h">
+      <Filter>Header Files\Common\Encryption</Filter>
     </ClInclude>
-    <ClInclude Include="StlFunctions.h">
-      <Filter>Header Files\Common</Filter>
+    <ClInclude Include="Common\Encryption\SHA.h">
+      <Filter>Header Files\Common\Encryption</Filter>
     </ClInclude>
-    <ClInclude Include="DoubleBuffering.h">
-      <Filter>Header Files\Common</Filter>
+    <ClInclude Include="Common\Encryption\StlFunctions.h">
+      <Filter>Header Files\Common\Encryption</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -56,20 +62,20 @@
     <ClCompile Include="pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ByteComposition.cpp">
-      <Filter>Source Files\Common</Filter>
+    <ClCompile Include="Common\Encryption\ByteComposition.cpp">
+      <Filter>Source Files\Common\Encryption</Filter>
     </ClCompile>
-    <ClCompile Include="Method.cpp">
-      <Filter>Source Files\Common</Filter>
+    <ClCompile Include="Common\Encryption\DoubleBuffering.cpp">
+      <Filter>Source Files\Common\Encryption</Filter>
     </ClCompile>
-    <ClCompile Include="SHA.cpp">
-      <Filter>Source Files\Common</Filter>
+    <ClCompile Include="Common\Encryption\Method.cpp">
+      <Filter>Source Files\Common\Encryption</Filter>
     </ClCompile>
-    <ClCompile Include="Rijndael.cpp">
-      <Filter>Source Files\Common</Filter>
+    <ClCompile Include="Common\Encryption\Rijndael.cpp">
+      <Filter>Source Files\Common\Encryption</Filter>
     </ClCompile>
-    <ClCompile Include="DoubleBuffering.cpp">
-      <Filter>Source Files\Common</Filter>
+    <ClCompile Include="Common\Encryption\SHA.cpp">
+      <Filter>Source Files\Common\Encryption</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

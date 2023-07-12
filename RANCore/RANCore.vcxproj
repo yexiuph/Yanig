@@ -24,7 +24,7 @@
     <ProjectGuid>{b412fb3b-71c4-4446-b340-48370d4d2a79}</ProjectGuid>
     <RootNamespace>RANCore</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>EncryptionCore</ProjectName>
+    <ProjectName>RANCore</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -42,7 +42,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
@@ -72,6 +71,14 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <AllProjectIncludesArePublic>false</AllProjectIncludesArePublic>
+    <PublicIncludeDirectories>
+    </PublicIncludeDirectories>
+    <OutDir>$(SolutionDir)Builds\Bin\Library\$(ProjectName)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Builds\Obj\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>RANCore</TargetName>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -114,6 +121,12 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>./;./Common;./Common/Encryption;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalHeaderUnitDependencies>
+      </AdditionalHeaderUnitDependencies>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Disabled</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -141,19 +154,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="ByteComposition.h" />
-    <ClInclude Include="DoubleBuffering.h" />
+    <ClInclude Include="Common\Encryption\ByteComposition.h" />
+    <ClInclude Include="Common\Encryption\DoubleBuffering.h" />
+    <ClInclude Include="Common\Encryption\Method.h" />
+    <ClInclude Include="Common\Encryption\Rijndael.h" />
+    <ClInclude Include="Common\Encryption\SHA.h" />
+    <ClInclude Include="Common\Encryption\StlFunctions.h" />
     <ClInclude Include="framework.h" />
-    <ClInclude Include="Rijndael.h" />
-    <ClInclude Include="Method.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RANCore.h" />
-    <ClInclude Include="SHA.h" />
-    <ClInclude Include="StlFunctions.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ByteComposition.cpp" />
-    <ClCompile Include="DoubleBuffering.cpp" />
+    <ClCompile Include="Common\Encryption\ByteComposition.cpp" />
+    <ClCompile Include="Common\Encryption\DoubleBuffering.cpp" />
+    <ClCompile Include="Common\Encryption\Method.cpp" />
+    <ClCompile Include="Common\Encryption\Rijndael.cpp" />
+    <ClCompile Include="Common\Encryption\SHA.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -161,9 +177,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="RANCore.cpp" />
-    <ClCompile Include="Method.cpp" />
-    <ClCompile Include="Rijndael.cpp" />
-    <ClCompile Include="SHA.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
